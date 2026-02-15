@@ -1,0 +1,353 @@
+
+Production-Grade Auto-Scaling Web Application (Ubuntu + AWS) (or) Linux-AWS-production-infrastructure-project
+
+
+
+
+________________________________________
+🧠 What You Are Building (Simple Words)
+Users → Load Balancer → Multiple Ubuntu EC2 servers → Database
+If traffic increases → new Ubuntu servers start automatically
+If one server fails → replaced automatically
+________________________________________
+⚙️ PREREQUISITES
+•	AWS account
+•	Basic Linux commands
+•	Free Tier is enough
+________________________________________
+🧩 STEP 1: Create IAM Role for EC2 (Security)
+Why?
+So EC2 can:
+•	Send logs to CloudWatch
+•	Access S3 (no passwords inside server)
+Steps
+1.	Go to IAM → Roles → Create role
+2.	Select AWS service → EC2
+3.	Attach policies:
+o	CloudWatchAgentServerPolicy
+o	AmazonS3ReadOnlyAccess
+4.	Name role:
+5.	EC2-CloudWatch-Role
+________________________________________
+🧩 STEP 2: Launch Ubuntu EC2 Instance
+EC2 Configuration
+•	AMI: Ubuntu Server 22.04 LTS
+•	Instance type: t2.micro
+•	Key pair: create or use existing
+•	IAM role: EC2-CloudWatch-Role
+•	Security Group:
+o	SSH → 22 → My IP
+o	HTTP → 80 → Anywhere
+o	HTTPS → 443 → Anywhere
+________________________________________
+🧩 STEP 3: Connect to Ubuntu EC2
+ssh -i mykey.pem ubuntu@<PUBLIC-IP>
+________________________________________
+🧩 STEP 4: Basic Ubuntu Setup (IMPORTANT)
+sudo apt update && sudo apt upgrade -y
+Set hostname:
+sudo hostnamectl set-hostname web-server
+________________________________________
+🔐 STEP 5: Linux Hardening (Ubuntu Commands)
+5.1 Create Non-Root User
+sudo adduser appuser
+sudo usermod -aG sudo appuser
+________________________________________
+5.2 SSH Hardening
+Edit SSH config:
+sudo nano /etc/ssh/sshd_config
+Change / confirm:
+PermitRootLogin no
+PasswordAuthentication no
+Restart SSH:
+sudo systemctl restart ssh
+________________________________________
+5.3 Firewall (UFW – Ubuntu Default)
+sudo ufw allow OpenSSH
+sudo ufw allow 80
+sudo ufw allow 443
+sudo ufw enable
+sudo ufw status
+________________________________________
+5.4 Automatic Security Updates
+sudo apt install unattended-upgrades -y
+sudo dpkg-reconfigure unattended-upgrades
+________________________________________
+🌐 STEP 6: Install Web Server (Nginx)
+sudo apt install nginx -y
+sudo systemctl enable nginx
+sudo systemctl start nginx
+Test:
+curl localhost
+________________________________________
+🧪 STEP 7: Create Sample Web App
+sudo nano /var/www/html/index.html
+Paste:
+<h1>Production Grade Ubuntu Web Server</h1>
+<p>Server IP: <?php echo $_SERVER['SERVER_ADDR']; ?></p>
+Restart nginx:
+sudo systemctl restart nginx
+Open browser → EC2 public IP
+________________________________________
+📈 STEP 8: Install CloudWatch Agent (Monitoring)
+sudo apt install amazon-cloudwatch-agent -y
+Create config:
+sudo nano /opt/aws/amazon-cloudwatch-agent/bin/config.json
+Paste basic config:
+{
+  "metrics": {
+    "metrics_collected": {
+      "cpu": {
+        "measurement": ["cpu_usage_idle"],
+        "metrics_collection_interval": 60
+      }
+    }
+  }
+}
+Start agent:
+sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+-a start -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json
+________________________________________
+🧩 STEP 9: Create AMI from This Instance
+Why?
+Auto Scaling needs template image
+1.	EC2 → Instance → Actions → Create Image
+2.	Name:
+3.	ubuntu-web-ami
+________________________________________
+🧩 STEP 10: Create Launch Template
+•	AMI: ubuntu-web-ami
+•	Instance type: t2.micro
+•	IAM role: EC2-CloudWatch-Role
+•	Security Group: same as before
+________________________________________
+🧩 STEP 11: Create Target Group
+•	Type: Instance
+•	Protocol: HTTP
+•	Port: 80
+•	Health check path: /
+________________________________________
+🧩 STEP 12: Create Application Load Balancer (ALB)
+•	Internet-facing
+•	Attach target group
+•	Listener: HTTP 80
+________________________________________
+🧩 STEP 13: Create Auto Scaling Group
+•	Launch template: created earlier
+•	Min: 2
+•	Desired: 2
+•	Max: 5
+•	Attach to ALB target group
+Scaling Policy
+•	CPU > 70% → scale out
+•	CPU < 30% → scale in
+________________________________________
+🚨 STEP 14: Create SNS Alert
+1.	SNS → Create topic → cpu-alerts
+2.	Subscribe → Email
+3.	CloudWatch Alarm:
+o	Metric: CPUUtilization
+o	Threshold: > 80%
+o	Action: SNS topic
+________________________________________
+🧪 STEP 15: TEST LIKE REAL ENGINEER
+Generate Load
+sudo apt install stress -y
+stress --cpu 2 --timeout 300
+Observe
+•	New EC2 instance launched
+•	Email alert received
+•	ALB routing traffic
+🔥 This is real production behavior
+________________________________________
+🧾 HOW TO EXPLAIN IN INTERVIEW (FINAL)
+“I deployed a production-grade Ubuntu Linux web application on AWS using ALB and Auto Scaling.
+I hardened Ubuntu servers by disabling root login, enforcing SSH keys, configuring UFW firewall, and enabling automated patching.
+The system scales automatically based on traffic and sends real-time alerts using CloudWatch and SNS.”
+________________________________________
+🎯 What You Achieved
+✅ Linux hardening
+✅ Real Ubuntu server
+✅ High availability
+✅ Auto scaling
+✅ Monitoring & alerts
+✅ Resume-ready project
+________________________________________
+🔥 Next (I strongly recommend)
+I can:
+•	Convert this into GitHub README
+•	Create interview Q&A
+•	Write ATS resume bullets
+•	Help you record demo video
+Just tell me 👍
+                                                  RDS
+
+Good catch 👍 — and you’re right to ask.
+Short honest answer
+I didn’t give RDS steps earlier because RDS is OPTIONAL for the first phase of this project.
+In real projects, engineers often stabilize compute + scaling + monitoring first, then add the database.
+Now that your:
+•	Ubuntu server ✅
+•	Nginx ✅
+•	Firewall & hardening ✅
+•	CloudWatch & alerts ✅
+are ready — this is the PERFECT time to add RDS.
+Below is a beginner-friendly, step-by-step RDS setup, explained in real-world terms.
+________________________________________
+🧩 RDS in This Project – What & Why
+ 
+ 
+ 
+Why we use RDS (real reason)
+If your app runs on multiple EC2 instances (Auto Scaling):
+•	You cannot store data on EC2 disk
+•	New instances would lose data
+👉 RDS gives one central, managed database that all EC2s can use.
+________________________________________
+🧠 Real-World Use Case
+Example:
+•	User signup
+•	Login details
+•	Orders
+•	Logs
+All EC2 instances:
+EC2-1 ─┐
+EC2-2 ─┼──► RDS (MySQL)
+EC2-3 ─┘
+________________________________________
+🧩 STEP-BY-STEP: Create RDS (Beginner Friendly)
+________________________________________
+✅ STEP 1: Open RDS Console
+AWS Console → RDS → Databases → Create database
+________________________________________
+✅ STEP 2: Choose Database Type
+Setting	Choose
+Creation method	Standard create
+Engine	MySQL
+Version	Default
+Template	Free tier
+👉 MySQL is easiest + most interview-friendly.
+________________________________________
+✅ STEP 3: DB Settings
+Field	Example
+DB instance identifier	prod-db
+Master username	admin
+Password	Strong password
+⚠️ Save username & password safely.
+________________________________________
+✅ STEP 4: Instance Size
+Setting	Value
+DB instance class	db.t3.micro
+Storage	20 GB (gp2)
+Autoscaling	❌ Off (for learning)
+________________________________________
+✅ STEP 5: Connectivity (MOST IMPORTANT)
+Setting	Value
+VPC	Same as EC2
+Public access	❌ No
+VPC security group	Create new
+Security Group for RDS
+Inbound rule:
+MySQL/Aurora | TCP | 3306 | EC2 Security Group
+🧠 This means:
+“Only my EC2 servers can access the database”
+This is production security.
+________________________________________
+✅ STEP 6: Database Options
+Setting	Value
+Initial DB name	appdb
+Backup	Enable
+Monitoring	Default
+Click Create database ⏳ (takes ~5 minutes)
+________________________________________
+🧪 STEP 7: Connect EC2 → RDS (Hands-On)
+1️⃣ Install MySQL client on Ubuntu
+sudo apt update
+sudo apt install mysql-client -y
+________________________________________
+2️⃣ Connect to RDS
+mysql -h <RDS-ENDPOINT> -u admin -p
+Enter password → connected 🎉
+________________________________________
+3️⃣ Test database
+SHOW DATABASES;
+USE appdb;
+
+CREATE TABLE users (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(50),
+  email VARCHAR(100)
+);
+
+INSERT INTO users VALUES (1,'Test User','test@mail.com');
+SELECT * FROM users;
+________________________________________
+🔥 What This Proves (VERY IMPORTANT)
+You can now say:
+•	EC2 connects to RDS ✅
+•	Data is centralized ✅
+•	Auto Scaling safe architecture ✅
+This upgrades your project level.
+________________________________________
+🎤 Interview-Ready Explanation (MEMORIZE)
+“I used Amazon RDS as a centralized database so that multiple auto-scaled EC2 instances could share persistent data. The database is deployed in a private subnet and accessible only through EC2 security groups for security.”
+This is 6–8 LPA level explanation.
+________________________________________
+🧠 Why RDS Was Step-After (Engineer Logic)
+Phase	Reason
+EC2 + ALB + ASG	Core availability
+Monitoring + Alerts	Stability
+RDS	Data persistence
+AMI	Scaling
+Auto Scaling	Final
+You followed the correct real-world order.
+________________________________________
+🚀 What Next (Recommended)
+Next logical steps:
+1️⃣ Add RDS to architecture diagram
+2️⃣ Mention RDS in resume bullets
+3️⃣ Create AMI after DB test
+4️⃣ Complete Auto Scaling Group
+If you want, I can:
+•	Help you connect app → RDS
+•	Write resume bullets with RDS
+•	Explain RDS interview questions
+•	Finalize full project flow
+Just tell me 👍
+                                                   S3
+
+OPTIONAL: Add S3 (Highly Recommended for Resume)
+If you want to strengthen your resume, do this small add-on.
+________________________________________
+🪣 STEP A: Create S3 Bucket
+1️⃣ AWS Console → S3 → Create bucket
+2️⃣ Bucket name:
+prod-webapp-logs-iniyavan
+3️⃣ Region: same as EC2
+4️⃣ Block public access: ✅ ON
+5️⃣ Create bucket
+________________________________________
+🧩 STEP B: Update IAM Role (IMPORTANT)
+Add policy to EC2 role:
+AmazonS3FullAccess
+(or better: limited custom policy)
+Why?
+→ EC2 needs permission to write logs to S3
+________________________________________
+🧩 STEP C: Send Nginx Logs to S3 (Simple Version)
+On Ubuntu EC2:
+sudo apt install awscli -y
+Test access:
+aws s3 ls
+If it works → IAM role is correct.
+________________________________________
+Upload logs manually (demo purpose):
+aws s3 cp /var/log/nginx/access.log s3://prod-webapp-logs-iniyavan/
+aws s3 cp /var/log/nginx/error.log s3://prod-webapp-logs-iniyavan/
+✅ Logs now stored in S3
+
+
+
+Chatgpt link :  https://chatgpt.com/share/697219b5-7098-8005-ae7d-ddd499722a86
+
+
